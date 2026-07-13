@@ -13,7 +13,10 @@ if ! scontrol show hostnames "${SLURM_JOB_NODELIST}" | grep -Fxq "$(hostname -s)
 fi
 
 LUSTRE_ROOT="${ISAACLAB_LUSTRE_ROOT:-/l/users/${USER}}"
-ENV_PREFIX="${ISAACLAB_CONDA_PREFIX:-${LUSTRE_ROOT}/conda-envs/isaaclab-2.3.2}"
+CONDA_ENV_NAME="${ISAACLAB_CONDA_ENV_NAME:-isaaclab-2.3.2}"
+CONDA_ENVS_DIR="${ISAACLAB_CONDA_ENVS_DIR:-${LUSTRE_ROOT}/conda-envs}"
+ENV_PREFIX="${ISAACLAB_CONDA_PREFIX:-${CONDA_ENVS_DIR}/${CONDA_ENV_NAME}}"
+CONDA_ENV_TARGET="${ISAACLAB_CONDA_PREFIX:-${CONDA_ENV_NAME}}"
 ISAACLAB_DIR="${ISAACLAB_DIR:-${LUSTRE_ROOT}/isaaclab/native-2.3.2/IsaacLab}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="${SCRIPT_DIR}/logs/native-verify-${SLURM_JOB_ID}-$(date +%Y%m%dT%H%M%S).log"
@@ -24,7 +27,11 @@ if [[ ! -r "${CONDA_SH}" ]]; then
     exit 6
 fi
 source "${CONDA_SH}"
-conda activate "${ENV_PREFIX}"
+conda activate "${CONDA_ENV_TARGET}"
+if [[ "${CONDA_PREFIX}" != "${ENV_PREFIX}" ]]; then
+    echo "Conda resolved ${CONDA_ENV_TARGET} to ${CONDA_PREFIX}, expected ${ENV_PREFIX}." >&2
+    exit 9
+fi
 export PYTHONNOUSERSITE=1
 mkdir -p "${SCRIPT_DIR}/logs"
 
@@ -32,6 +39,8 @@ set -o pipefail
 {
     echo "node=$(hostname)"
     echo "slurm_job_id=${SLURM_JOB_ID}"
+    echo "conda_env_name=${CONDA_ENV_NAME}"
+    echo "conda_env_prefix=${CONDA_PREFIX}"
     python --version
     nvidia-smi --query-gpu=name,driver_version,memory.total,memory.used,utilization.gpu \
         --format=csv,noheader

@@ -22,7 +22,7 @@ caches, and checkpoints on Lustre:
 | Item | Default per-user location |
 | --- | --- |
 | This repository | wherever it was cloned, normally `$HOME/isaaclab-cluster` |
-| Conda environment | `/l/users/$USER/conda-envs/isaaclab-2.3.2` |
+| Conda environment | name `isaaclab-2.3.2`, stored at `/l/users/$USER/conda-envs/isaaclab-2.3.2` |
 | Isaac Lab checkout | `/l/users/$USER/isaaclab/native-2.3.2/IsaacLab` |
 | Isaac/RTX cache | `/l/users/$USER/.cache/isaaclab-2.3.2` |
 | Isaac configuration | `/l/users/$USER/.config/isaaclab-2.3.2` |
@@ -38,11 +38,16 @@ changes:
 
 ```bash
 export ISAACLAB_LUSTRE_ROOT=/l/users/$USER
-export ISAACLAB_CONDA_PREFIX="$ISAACLAB_LUSTRE_ROOT/conda-envs/isaaclab-2.3.2"
+export ISAACLAB_CONDA_ENV_NAME=isaaclab-2.3.2
+export ISAACLAB_CONDA_ENVS_DIR="$ISAACLAB_LUSTRE_ROOT/conda-envs"
 export ISAACLAB_DIR="$ISAACLAB_LUSTRE_ROOT/isaaclab/native-2.3.2/IsaacLab"
 export ISAACLAB_CONDA_SH=/apps/local/anaconda2023/etc/profile.d/conda.sh
 export ISAACLAB_LUSTRE_MOUNT=/l
 ```
+
+`ISAACLAB_CONDA_PREFIX=/some/absolute/path` remains available as an advanced
+override. Setting it deliberately switches creation and activation back to
+prefix mode instead of the normal named-environment workflow.
 
 ## 1. Clone the repository
 
@@ -132,7 +137,11 @@ The installer:
 - refuses to run outside a Slurm allocation or on an occupied GPU;
 - checks that at least 50 GiB is available on the per-user Lustre path;
 - keeps transient Conda and pip archives in node-local `$TMPDIR`;
-- creates the persistent Python 3.11 Conda environment on Lustre;
+- registers `/l/users/$USER/conda-envs` as the first per-user Conda
+  `envs_dirs` location;
+- configures the concise `(environment-name)` prompt when the user has not
+  already chosen a custom Conda prompt format;
+- creates the named `isaaclab-2.3.2` Python 3.11 environment on Lustre;
 - installs Isaac Sim 5.1 and CUDA 12.8 PyTorch wheels;
 - clones the exact Isaac Lab `v2.3.2` tag on Lustre;
 - installs the six Isaac Lab packages editably plus the RSL-RL backend;
@@ -141,6 +150,27 @@ The installer:
 
 The script is idempotent. It does not invoke Kit or accept the NVIDIA EULA
 during installation.
+
+After installation, the environment has a normal Conda name and can be used
+from any new shell without supplying its absolute prefix:
+
+```bash
+source /apps/local/anaconda2023/etc/profile.d/conda.sh
+conda activate isaaclab-2.3.2
+conda env list
+```
+
+For an older checkout created by a previous version of this repository with
+`--prefix`, no environment copy or reinstall is necessary. Its directory
+already has the correct basename. Register the parent once and Conda will show
+and resolve it by name:
+
+```bash
+source /apps/local/anaconda2023/etc/profile.d/conda.sh
+conda config --prepend envs_dirs "/l/users/$USER/conda-envs"
+conda config --set env_prompt '({name}) '
+conda activate isaaclab-2.3.2
+```
 
 Verify Python, package metadata, and a real CUDA tensor operation:
 
@@ -289,6 +319,8 @@ driver 570.195.03 and CUDA driver API 12.8:
 
 - Isaac Lab tag `v2.3.2`, commit `37ddf626871758333d6ed89cf64ad702aef127d0`;
 - Python `3.11.15`, Isaac Sim `5.1.0.0`, PyTorch `2.7.0+cu128`;
+- named activation `conda activate isaaclab-2.3.2` resolved to the expected
+  per-user Lustre environment;
 - CUDA tensor verification passed on `NVIDIA RTX 5000 Ada Generation`;
 - native Vulkan/RTX startup selected GPU 0 and printed
   `ISAAC_SIM_HEADLESS_OK`;
@@ -300,6 +332,8 @@ driver 570.195.03 and CUDA driver API 12.8:
 
 ## Official references
 
+- [Conda custom environment locations](https://docs.conda.io/projects/conda/en/stable/user-guide/configuration/custom-env-and-pkg-locations.html)
+- [Conda environment management and prompt names](https://docs.conda.io/projects/conda/en/stable/user-guide/tasks/manage-environments.html)
 - [Isaac Lab native pip installation](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/pip_installation.html)
 - [Isaac Lab v2.3.2 compatibility information](https://github.com/isaac-sim/IsaacLab/tree/v2.3.2#isaac-sim-version-dependency)
 - [Isaac Lab cluster deployment guide](https://isaac-sim.github.io/IsaacLab/main/source/deployment/cluster.html)

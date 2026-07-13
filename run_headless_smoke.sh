@@ -33,7 +33,15 @@ if [[ ! -r "${CONDA_SH}" ]]; then
 fi
 source "${CONDA_SH}"
 LUSTRE_ROOT="${ISAACLAB_LUSTRE_ROOT:-/l/users/${USER}}"
-conda activate "${ISAACLAB_CONDA_PREFIX:-${LUSTRE_ROOT}/conda-envs/isaaclab-2.3.2}"
+CONDA_ENV_NAME="${ISAACLAB_CONDA_ENV_NAME:-isaaclab-2.3.2}"
+CONDA_ENVS_DIR="${ISAACLAB_CONDA_ENVS_DIR:-${LUSTRE_ROOT}/conda-envs}"
+ENV_PREFIX="${ISAACLAB_CONDA_PREFIX:-${CONDA_ENVS_DIR}/${CONDA_ENV_NAME}}"
+CONDA_ENV_TARGET="${ISAACLAB_CONDA_PREFIX:-${CONDA_ENV_NAME}}"
+conda activate "${CONDA_ENV_TARGET}"
+if [[ "${CONDA_PREFIX}" != "${ENV_PREFIX}" ]]; then
+    echo "Conda resolved ${CONDA_ENV_TARGET} to ${CONDA_PREFIX}, expected ${ENV_PREFIX}." >&2
+    exit 9
+fi
 export PYTHONNOUSERSITE=1
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${LUSTRE_ROOT}/.cache/isaaclab-2.3.2}"
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${LUSTRE_ROOT}/.config/isaaclab-2.3.2}"
@@ -44,6 +52,8 @@ unset DISPLAY
 
 echo "node=$(hostname)"
 echo "slurm_job_id=${SLURM_JOB_ID}"
+echo "conda_env_name=${CONDA_ENV_NAME}"
+echo "conda_env_prefix=${CONDA_PREFIX}"
 python --version
 nvidia-smi --query-gpu=name,driver_version,memory.used,utilization.gpu --format=csv,noheader
 GPU_PROCESSES="$(nvidia-smi --query-compute-apps=pid,process_name,used_gpu_memory --format=csv,noheader)"

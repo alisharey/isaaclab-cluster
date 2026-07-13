@@ -7,7 +7,10 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CONSTRAINTS_FILE="${SCRIPT_DIR}/native-constraints.txt"
 LUSTRE_ROOT="${ISAACLAB_LUSTRE_ROOT:-/l/users/${USER}}"
 LUSTRE_MOUNT="${ISAACLAB_LUSTRE_MOUNT:-/l}"
-ENV_PREFIX="${ISAACLAB_CONDA_PREFIX:-${LUSTRE_ROOT}/conda-envs/isaaclab-2.3.2}"
+CONDA_ENV_NAME="${ISAACLAB_CONDA_ENV_NAME:-isaaclab-2.3.2}"
+CONDA_ENVS_DIR="${ISAACLAB_CONDA_ENVS_DIR:-${LUSTRE_ROOT}/conda-envs}"
+ENV_PREFIX="${ISAACLAB_CONDA_PREFIX:-${CONDA_ENVS_DIR}/${CONDA_ENV_NAME}}"
+CONDA_ENV_TARGET="${ISAACLAB_CONDA_PREFIX:-${CONDA_ENV_NAME}}"
 ISAACLAB_DIR="${ISAACLAB_DIR:-${LUSTRE_ROOT}/isaaclab/native-2.3.2/IsaacLab}"
 LOCAL_CACHE_ROOT="${TMPDIR:-/tmp}/${USER}/isaaclab-native-cache"
 
@@ -39,6 +42,19 @@ fi
 source "${CONDA_SH}"
 conda --version
 
+# Named environments are stored on Lustre rather than in the home directory.
+# Registering their parent makes `conda activate <name>` work in future shells.
+# An explicit ISAACLAB_CONDA_PREFIX retains the legacy/custom prefix behavior.
+if [[ -z "${ISAACLAB_CONDA_PREFIX:-}" ]]; then
+    mkdir -p "${CONDA_ENVS_DIR}"
+    if ! conda config --show envs_dirs | grep -Fxq "  - ${CONDA_ENVS_DIR}"; then
+        conda config --prepend envs_dirs "${CONDA_ENVS_DIR}"
+    fi
+    if [[ -z "$(conda config --get env_prompt)" ]]; then
+        conda config --set env_prompt '({name}) '
+    fi
+fi
+
 # Keep transient package archives on node-local storage.  The Conda environment
 # and Isaac Lab checkout themselves remain persistent on Lustre.
 export CONDA_PKGS_DIRS="${LOCAL_CACHE_ROOT}/conda-pkgs"
@@ -59,10 +75,20 @@ df -h "${LUSTRE_ROOT}"
 command -v lfs >/dev/null && lfs quota -u "${USER}" "${LUSTRE_MOUNT}" || true
 
 if [[ ! -x "${ENV_PREFIX}/bin/python" ]]; then
-    conda create --prefix "${ENV_PREFIX}" --yes python=3.11
+    if [[ -n "${ISAACLAB_CONDA_PREFIX:-}" ]]; then
+        conda create --prefix "${ENV_PREFIX}" --yes python=3.11
+    else
+        conda create --name "${CONDA_ENV_NAME}" --yes python=3.11
+    fi
 fi
 
-conda activate "${ENV_PREFIX}"
+conda activate "${CONDA_ENV_TARGET}"
+if [[ "${CONDA_PREFIX}" != "${ENV_PREFIX}" ]]; then
+    echo "Conda resolved ${CONDA_ENV_TARGET} to ${CONDA_PREFIX}, expected ${ENV_PREFIX}." >&2
+    exit 9
+fi
+echo "conda_env_name=${CONDA_ENV_NAME}"
+echo "conda_env_prefix=${CONDA_PREFIX}"
 python -c 'import sys; assert sys.version_info[:2] == (3, 11), sys.version'
 python --version
 python -m pip install --upgrade pip
