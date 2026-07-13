@@ -1,4 +1,4 @@
-# Native Isaac Sim and Isaac Lab on the Slurm cluster
+# Native Isaac Sim and Isaac Lab on MBZUAI HPC CLUSTER
 
 This repository installs and validates Isaac Sim and Isaac Lab natively in a
 per-user Conda environment. It is designed for this cluster's Slurm compute
