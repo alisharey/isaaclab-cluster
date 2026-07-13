@@ -1,0 +1,8 @@
+# Versions that keep Isaac Lab v2.3.2 compatible with Isaac Sim 5.1's
+# deliberately older Python runtime pins.
+wheel==0.45.1
+setuptools==80.9.0
+ipython==8.37.0
+psutil==5.9.8
+typing_extensions==4.12.2
+onnx==1.21.0
